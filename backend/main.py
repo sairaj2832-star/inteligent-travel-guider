@@ -1,14 +1,17 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+# NEW IMPORT for the login form
+from fastapi.security import OAuth2PasswordRequestForm 
 from contextlib import asynccontextmanager
-from typing import Annotated # We need this for the new dependency system
+from typing import Annotated
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Import all our new modules
+# Import all our modules
 import models
 import CRUD
 import schemas
-from database import init_db, async_session # We now import async_session
+import security # NEW: We need the full security module
+from database import init_db, async_session
 
 # --- Lifespan Function (from before) ---
 @asynccontextmanager
@@ -20,29 +23,15 @@ async def lifespan(app: FastAPI):
     yield 
     print("Server shutting down...")
 
-# --- Database "Ticket" System (Dependency) ---
-# This is our new "dependency" function.
-# It's our "ticket" system for the database.
+# --- Database Dependency (from before) ---
 async def get_db():
-    """
-    This function gets a database session from our async_session "ticket counter".
-    It will be used by every endpoint that needs to talk to the database.
-    It uses try...finally to ensure the database connection is *always*
-    closed, even if an error occurs.
-    """
-    # Get a "ticket" (a new session) from our factory
     db = async_session()
     try:
         yield db
     finally:
-        # Always close the ticket/session when we're done or if an error happens
         await db.close()
 
-# This is a "shorthand" for our dependency.
-# In our endpoints, we can just type `db: AsyncDb` and FastAPI
-# will automatically run the get_db() function.
 AsyncDb = Annotated[AsyncSession, Depends(get_db)]
-
 
 # --- FastAPI App ---
 app = FastAPI(
@@ -54,34 +43,51 @@ app = FastAPI(
 
 @app.get("/api/health")
 def read_health():
-    """
-    Health check endpoint to confirm the API is running.
-    """
     return {"status": "ok"}
 
 
-# --- NEW AUTH ENDPOINT ---
+# --- Auth Endpoints ---
+
 @app.post("/api/auth/register", response_model=schemas.User)
 async def register_user(user: schemas.UserCreate, db: AsyncDb):
-    """
-    Registers a new user in the database.
-    """
-    # 1. Check if the user's email already exists
-    #    We use our new 'crud.py' helper function for this
     db_user = await CRUD.get_user_by_email(db, email=user.email)
-    
     if db_user:
-        # 2. If the user exists, raise a 400 Bad Request error
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
-    
-    # 3. If email is unique, create the new user
-    #    This also hashes the password
     new_user = await CRUD.create_user(db, user=user)
-    
-    # 4. Return the new user.
-    #    Because we set 'response_model=schemas.User',
-    #    FastAPI will automatically filter out the hashed_password!
     return new_user
+
+# --- NEW: LOGIN ENDPOINT ---
+@app.post("/api/auth/login", response_model=schemas.Token)
+async def login_for_access_token(
+    # This is new:
+    # FastAPI will automatically get the "username" and "password"
+    # from a form for us.
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: AsyncDb
+):
+    """
+    Logs in a user and returns a JWT access token.
+    
+    Note: The OAuth2 form standard uses "username", 
+    but we will treat it as our "email".
+    """
+    # 1. Get the user from the DB by their email (which is 'form_data.username')
+    user = await CRUD.get_user_by_email(db, email=form_data.username)
+    
+    # 2. Check if user exists OR if the password is wrong
+    if not user or not security.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"}, # Standard for login errors
+        )
+        
+    # 3. If password is correct, create the JWT "ID Card"
+    access_token_data = {"sub": user.email} # "sub" is a standard name for the token "subject"
+    access_token = security.create_access_token(data=access_token_data)
+    
+    # 4. Return the token
+    return {"access_token": access_token, "token_type": "bearer"}

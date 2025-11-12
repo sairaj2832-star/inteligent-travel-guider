@@ -1,40 +1,43 @@
 from pydantic import BaseModel, EmailStr
 
-# --- User Schemas ---
+# --- User Schemas (from before) ---
 
 class UserBase(BaseModel):
     """
-    This is the base schema for a User.
-    It includes fields that are common for both creating a user
-    and for representing a user that already exists.
+    This is the base schema. It's not used directly.
     """
     email: EmailStr # A special type from Pydantic that validates the email format.
 
 class UserCreate(UserBase):
     """
-    This schema is used ONLY when creating a new user.
-    It inherits 'email' from UserBase and adds a 'password'.
-    This is the model our /register endpoint will expect.
+    This is the schema for *creating* a user.
+    It expects an email and a password.
     """
     password: str
 
-class UserInDBBase(UserBase):
+class User(UserBase):
     """
-    This is the base schema for a User that is already in the database.
-    It includes the 'id' and 'email'.
+    This is the schema for *returning* a user from the API.
+    It includes the ID and email, but securely hides the password.
     """
     id: int
 
     class Config:
-        """
-        This tells Pydantic to be compatible with our database models.
-        It allows it to read data from an ORM object (like our User model).
-        """
         from_attributes = True
 
-class User(UserInDBBase):
+# --- NEW: Token Schemas (Moved to the correct file) ---
+
+class Token(BaseModel):
     """
-    This is the main schema we will use for representing a User
-    in our API responses. We will NOT include the hashed_password.
+    This is the schema for the token response.
+    It's what we send back to the user when they log in.
     """
-    pass # For now, it's the same as UserInDBBase.
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    """
+    This is the schema for the data *inside* the token.
+    We will just store the user's email.
+    """
+    email: str | None = None
