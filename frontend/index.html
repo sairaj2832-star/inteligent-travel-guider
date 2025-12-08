@@ -4,7 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>DISHANVESHI — Travel Planner</title>
-  <link rel="stylesheet" href="./styles.css">
+
+  <!-- FIXED: Correct relative path -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
@@ -72,16 +74,14 @@
     </main>
   </div>
 
-  <!-- config (edit before deploy or use the manual instructions below) -->
   <script>
-    // Edit these values before pushing to GitHub / Netlify
-    // OR replace this file with a generated config.js during build
     window.APP_CONFIG = {
-      API_BASE: "https://your-backend.example.com",   // ← replace with your backend URL
-      GOOGLE_MAPS_API_KEY: ""                         // ← optional: add your Google Maps key here
+      API_BASE: "https://your-backend.example.com",
+      GOOGLE_MAPS_API_KEY: "AIzaSyAK9_R8cwT6B5ShQP1H9Z91xusDX9Zjtvk"
     };
   </script>
 
-  <script src="./app.js"></script>
+  <!-- FIXED: Correct relative path -->
+  <script src="app.js"></script>
 </body>
 </html>
