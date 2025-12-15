@@ -1,245 +1,88 @@
-/* ===============================
-   Dishanveshi Frontend App
-   Production-Ready app.js
-================================ */
+const { API_BASE, GOOGLE_MAPS_API_KEY } = window.APP_CONFIG;
 
-// ---------- CONFIG ----------
-const CONFIG = window.APP_CONFIG || {};
-const API_BASE = CONFIG.API_BASE;
-const MAPS_KEY = CONFIG.GOOGLE_MAPS_API_KEY;
+let token = localStorage.getItem("token");
+let map, markers=[];
 
-if (!API_BASE) {
-  fatalUI("API_BASE missing. Check APP_CONFIG.");
-}
-if (!MAPS_KEY) {
-  console.warn("⚠ Google Maps key missing — map disabled");
-}
+const loader = document.getElementById("loader");
+const auth = document.getElementById("auth");
+const app = document.getElementById("app");
 
-// ---------- GLOBAL STATE ----------
-let map = null;
-let markers = [];
-let userToken = null;
+function showLoader(){loader.classList.remove("hidden")}
+function hideLoader(){loader.classList.add("hidden")}
 
-// ---------- UTILS ----------
-function log(...args) {
-  console.log("[Dishanveshi]", ...args);
+function showApp(){
+  auth.classList.add("hidden");
+  app.classList.remove("hidden");
 }
 
-function errorUI(message) {
-  addMessage(`❌ ${message}`, "ai");
-}
+if(token) showApp();
 
-function fatalUI(message) {
-  document.body.innerHTML = `
-    <div style="padding:40px;color:red;font-size:18px">
-      <b>Fatal Error</b><br>${message}
-    </div>`;
-  throw new Error(message);
-}
-
-// ---------- SAFE FETCH ----------
-async function apiFetch(path, options = {}) {
-  const url = `${API_BASE}${path}`;
-  log("API →", url);
-
-  try {
-    const res = await fetch(url, {
+async function api(path, options={}){
+  showLoader();
+  try{
+    const r = await fetch(API_BASE+path,{
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(userToken ? { Authorization: `Bearer ${userToken}` } : {}),
-        ...(options.headers || {})
+      headers:{
+        "Content-Type":"application/json",
+        Authorization: token ? "Bearer "+token : ""
       }
     });
+    if(!r.ok) throw new Error(await r.text());
+    return await r.json();
+  }finally{hideLoader()}
+}
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`${res.status} ${text}`);
-    }
+/* AUTH */
+let isLogin=true;
+switchAuth.onclick=()=>{
+  isLogin=!isLogin;
+  authTitle.innerText=isLogin?"Login":"Sign Up";
+  authBtn.innerText=isLogin?"Login":"Sign Up";
+  switchAuth.innerText=isLogin?"No account? Sign up":"Have account? Login";
+};
 
-    return await res.json();
-  } catch (err) {
-    console.error("❌ Fetch failed:", err);
-    throw err;
+authBtn.onclick=async()=>{
+  const email=document.getElementById("email").value;
+  const password=document.getElementById("password").value;
+  const path=isLogin?"/api/auth/login":"/api/auth/signup";
+  const res=await api(path,{method:"POST",body:JSON.stringify({email,password})});
+  if(res.access_token){
+    token=res.access_token;
+    localStorage.setItem("token",token);
+    showApp();
   }
+};
+
+function logout(){
+  localStorage.clear();location.reload();
 }
 
-// ---------- UI ----------
-function addMessage(text, who = "ai") {
-  const box = document.createElement("div");
-  box.className = "card";
-  box.innerHTML = `
-    <div style="font-weight:600">
-      ${who === "user" ? "You" : "Dishanveshi"}
-    </div>
-    <div style="margin-top:6px">${text}</div>
-  `;
-  document.getElementById("messages").prepend(box);
-}
-
-// ---------- GOOGLE MAPS ----------
-function initMap() {
-  if (!MAPS_KEY) return;
-
-  if (window.google?.maps) {
-    onMapsReady();
-    return;
-  }
-
-  const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&callback=onMapsReady`;
-  script.async = true;
-  script.onerror = () => {
-    document.getElementById("map").innerHTML =
-      "❌ Failed to load Google Maps";
-  };
-  document.head.appendChild(script);
-}
-
-window.onMapsReady = function () {
-  map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 20.5937, lng: 78.9629 },
-    zoom: 5
+/* ITINERARY */
+newItinBtn.onclick=async()=>{
+  const dest=destInput.value||"Pune";
+  const data=await api("/api/itinerary",{method:"POST",body:JSON.stringify({destination:dest})});
+  messages.innerHTML="";
+  data.plan.forEach(d=>{
+    const c=document.createElement("div");
+    c.className="card";
+    c.innerText=`Day ${d.day}: ${d.summary}`;
+    messages.appendChild(c);
   });
 };
 
-function clearMarkers() {
-  markers.forEach(m => m.setMap(null));
-  markers = [];
+/* AI */
+sendBtn.onclick=async()=>{
+  const q=chatText.value;
+  const r=await api("/api/ai/recommend",{method:"POST",body:JSON.stringify({places_list:q})});
+  const c=document.createElement("div");
+  c.className="card";c.innerText=r.recommendation;
+  messages.prepend(c);
+};
+
+/* MAP */
+if(GOOGLE_MAPS_API_KEY){
+  const s=document.createElement("script");
+  s.src=`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
+  s.async=true;document.head.appendChild(s);
 }
-
-// ---------- ITINERARY ----------
-async function generateItinerary(destination) {
-  addMessage(`Generating itinerary for ${destination}…`, "user");
-
-  try {
-    const data = await apiFetch("/api/itinerary", {
-      method: "POST",
-      body: JSON.stringify({
-        destination,
-        days: 3,
-        travel_type: "cultural",
-        budget: "medium",
-        mood: "relaxed",
-        include_pois: true
-      })
-    });
-
-    if (!Array.isArray(data.plan)) {
-      throw new Error("Invalid itinerary response");
-    }
-
-    renderPlan(data.plan);
-  } catch (err) {
-    errorUI("Itinerary error: " + err.message);
-  }
-}
-
-function renderPlan(plan) {
-  clearMarkers();
-  const container = document.getElementById("messages");
-  container.innerHTML = "";
-
-  plan.forEach(day => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `<b>Day ${day.day}</b><br>${day.summary || ""}`;
-    container.appendChild(card);
-
-    (day.places || []).forEach(p => {
-      if (map && p.lat && p.lng) {
-        const lat = Number(p.lat);
-        const lng = Number(p.lng);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          markers.push(
-            new google.maps.Marker({
-              position: { lat, lng },
-              map,
-              title: p.name || "Place"
-            })
-          );
-        }
-      }
-    });
-  });
-}
-
-// ---------- AI CHAT ----------
-async function askAI(text) {
-  addMessage(text, "user");
-
-  try {
-    const data = await apiFetch("/api/ai/recommend", {
-      method: "POST",
-      body: JSON.stringify({
-        mood: "neutral",
-        places_list: text
-      })
-    });
-
-    addMessage(data.recommendation || "No response");
-  } catch (err) {
-    errorUI("AI error: " + err.message);
-  }
-}
-
-// ---------- LOGIN ----------
-async function login() {
-  const email = prompt("Email");
-  const password = prompt("Password");
-  if (!email || !password) return;
-
-  const form = new FormData();
-  form.append("username", email);
-  form.append("password", password);
-
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
-      method: "POST",
-      body: form
-    });
-
-    if (!res.ok) throw new Error("Login failed");
-
-    const data = await res.json();
-    userToken = data.access_token;
-
-    addMessage(`Logged in as ${email}`, "ai");
-    loadSaved();
-  } catch (err) {
-    errorUI("Login error");
-  }
-}
-
-// ---------- SAVED ----------
-async function loadSaved() {
-  const panel = document.getElementById("savedList");
-  panel.innerHTML = "";
-
-  try {
-    const data = await apiFetch("/api/itinerary/my");
-    data.forEach(it => {
-      const d = document.createElement("div");
-      d.className = "card";
-      d.textContent = it.destination;
-      panel.appendChild(d);
-    });
-  } catch {
-    panel.innerHTML = "⚠ Failed to load saved itineraries";
-  }
-}
-
-// ---------- EVENTS ----------
-document.getElementById("sendBtn").onclick = () =>
-  askAI(document.getElementById("chatText").value.trim());
-
-document.getElementById("newItinBtn").onclick = () =>
-  generateItinerary(
-    document.getElementById("destInput").value.trim() || "Pune"
-  );
-
-document.getElementById("loginBtn").onclick = login;
-
-// ---------- START ----------
-log("App started");
-initMap();
+window.initMap=()=>map=new google.maps.Map(document.getElementById("map"),{center:{lat:20.5,lng:78.9},zoom:5});
