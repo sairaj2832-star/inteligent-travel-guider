@@ -47,9 +47,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ---------------- VIEW ---------------- */
   function showApp() {
-    auth?.classList.add("hidden");
-    app?.classList.remove("hidden");
-  }
+  // hide auth screen
+  if (auth) auth.classList.add("hidden");
+
+  // show app
+  if (app) app.classList.remove("hidden");
+
+  // FORCE hide loader (final fix)
+  if (loader) {
+       loader.classList.add("hidden");
+       loader.style.display = "none";
+    }
+   }
+
 
   function showAuth() {
     auth?.classList.remove("hidden");
@@ -105,7 +115,8 @@ document.addEventListener("DOMContentLoaded", () => {
           const data = await res.json();
           token = data.access_token;
           localStorage.setItem("token", token);
-          showApp();
+          hideLoader();
+           showApp();
         } else {
           /* SIGN UP */
           const res = await fetch(API_BASE + "/api/auth/register", {
