@@ -1,38 +1,77 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+# ==========================================================
+# Dishanveshi Backend API
+# Version: v1.0.0
+# Stack: FastAPI + JWT + Async SQLAlchemy
+# ==========================================================
+
+from fastapi import (
+    FastAPI, Depends, HTTPException, status, Query
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm 
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, List
+from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
-from schemas import ItineraryRequest, ItineraryResponse
-from fastapi.responses import FileResponse 
-import os 
-from fastapi import Query
-from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
+import os
+
+# ----------------- Internal Imports -----------------
+import models
+import schemas
+import CRUD
+import services
+import security
+from database import init_db, async_session
 from security import SECRET_KEY, ALGORITHM
+
+# ==========================================================
+# APP METADATA
+# ==========================================================
+API_VERSION = "v1.0.0"
+APP_NAME = "Dishanveshi – Travel Intelligence API"
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-
-# Import our modules
-import models
-import CRUD
-import schemas
-import security
-import services 
-from database import init_db, async_session
-
-# --- Lifespan Function ---
+# ==========================================================
+# LIFESPAN (Startup / Shutdown)
+# ==========================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Server starting up...")
-    await init_db() 
-    print("Database initialized.")
-    yield 
-    print("Server shutting down...")
+    print("🚀 Starting Dishanveshi API...")
+    await init_db()
+    print("✅ Database initialized")
+    yield
+    print("🛑 Shutting down Dishanveshi API...")
 
-# --- Database Dependency ---
+# ==========================================================
+# APP INIT
+# ==========================================================
+app = FastAPI(
+    title=APP_NAME,
+    version=API_VERSION,
+    lifespan=lifespan
+)
+
+# ==========================================================
+# CORS
+# ==========================================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://dishanveshi.vercel.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ==========================================================
+# DATABASE DEPENDENCY
+# ==========================================================
 async def get_db():
     db = async_session()
     try:
@@ -40,143 +79,156 @@ async def get_db():
     finally:
         await db.close()
 
-AsyncDb = Annotated[AsyncSession, Depends(get_db)]
+AsyncDB = Annotated[AsyncSession, Depends(get_db)]
 
-# --- FastAPI App ---
-app = FastAPI(
-    title="TravelMate API",
-    lifespan=lifespan 
-)
-
-# --- CORS ---
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# --- Request Models ---
-class LocationSearch(BaseModel):
-    lat: float
-    lng: float
-    type: str 
-
-class AIRequest(BaseModel):
-    mood: str
-    places_list: str
-
-# --- API Endpoints ---
-
-@app.get("/api/health")
-def read_health():
-    return {"status": "ok"}
-
-# --- NEW: SERVE THE FRONTEND (The Magic Part) ---
-@app.get("/")
-async def read_root():
-    # This tells Python: "When someone opens the website, give them the HTML file"
-    file_path = os.path.join(os.path.dirname(__file__), "index.html")
-    if os.path.exists(file_path):
-        return FileResponse(file_path)
-    return {"error": "index.html not found"}
-
-# --- Auth Endpoints ---
-@app.post("/api/auth/register", response_model=schemas.User)
-async def register_user(user: schemas.UserCreate, db: AsyncDb):
-    db_user = await CRUD.get_user_by_email(db, email=user.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    return await CRUD.create_user(db, user=user)
-
-@app.post("/api/auth/login", response_model=schemas.Token)
-async def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: AsyncDb
+# ==========================================================
+# AUTH UTIL
+# ==========================================================
+async def get_current_user(
+    db: AsyncDB,
+    token: str = Depends(oauth2_scheme)
 ):
-    user = await CRUD.get_user_by_email(db, email=form_data.username)
-    if not user or not security.verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token = security.create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-# --- TravelMate Endpoints ---
-
-@app.post("/api/places/search")
-async def search_places(search: LocationSearch):
-    query = "restaurant" if search.type == "food" else "hotel"
-    places = await services.get_google_places(search.lat, search.lng, query)
-    return places
-
-@app.post("/api/ai/recommend")
-async def ask_gemini(request: AIRequest):
-    advice = await services.get_ai_recommendation(request.mood, request.places_list)
-    return {"recommendation": advice}
-
-class ItineraryRequest(BaseModel):
-    destination: str
-    days: int
-    travel_type: str
-    budget: str
-    mood: str
-    include_pois: bool = True   # new
-
-@app.post("/api/itinerary", response_model=ItineraryResponse)
-async def generate_user_itinerary(request: ItineraryRequest):
-    plan = await services.generate_itinerary(
-        destination=request.destination,
-        days=request.days,
-        travel_type=request.travel_type,
-        budget=request.budget,
-        mood=request.mood,
-        include_pois=request.include_pois
-    )
-    return {"destination": request.destination, "plan": plan}
-async def get_current_user(db: AsyncDb,token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
+        email: str = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401)
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
 
     user = await CRUD.get_user_by_email(db, email=email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
-@app.post("/api/itinerary/save")
+
+# ==========================================================
+# HEALTH + ROOT
+# ==========================================================
+@app.get("/api/health", tags=["system"])
+def health():
+    return {
+        "status": "ok",
+        "app": APP_NAME,
+        "version": API_VERSION
+    }
+
+@app.get("/", tags=["system"])
+async def serve_frontend():
+    file_path = os.path.join(os.path.dirname(__file__), "index.html")
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return {"message": "Dishanveshi API is running"}
+
+# ==========================================================
+# AUTH ROUTES
+# ==========================================================
+@app.post("/api/auth/register", response_model=schemas.User, tags=["auth"])
+async def register_user(user: schemas.UserCreate, db: AsyncDB):
+    existing = await CRUD.get_user_by_email(db, email=user.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    return await CRUD.create_user(db, user)
+
+@app.post("/api/auth/login", response_model=schemas.Token, tags=["auth"])
+async def login(
+    form: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: AsyncDB
+):
+    user = await CRUD.get_user_by_email(db, email=form.username)
+    if not user or not security.verify_password(
+        form.password, user.hashed_password
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    token = security.create_access_token({"sub": user.email})
+    return {"access_token": token, "token_type": "bearer"}
+
+# ==========================================================
+# AI + PLACES
+# ==========================================================
+class AIRequest(BaseModel):
+    mood: str
+    places_list: str
+
+class LocationSearch(BaseModel):
+    lat: float
+    lng: float
+    type: str
+
+@app.post("/api/ai/recommend", tags=["ai"])
+async def ai_recommend(
+    req: AIRequest,
+    user = Depends(get_current_user)
+):
+    advice = await services.get_ai_recommendation(
+        req.mood, req.places_list
+    )
+    return {"recommendation": advice}
+
+@app.post("/api/places/search", tags=["places"])
+async def search_places(
+    search: LocationSearch,
+    user = Depends(get_current_user)
+):
+    query = "restaurant" if search.type == "food" else "hotel"
+    return await services.get_google_places(
+        search.lat, search.lng, query
+    )
+
+# ==========================================================
+# ITINERARY
+# ==========================================================
+@app.post(
+    "/api/itinerary",
+    response_model=schemas.ItineraryResponse,
+    tags=["itinerary"]
+)
+async def generate_itinerary(
+    req: schemas.ItineraryRequest,
+    user = Depends(get_current_user)
+):
+    plan = await services.generate_itinerary(
+        destination=req.destination,
+        days=req.days,
+        travel_type=req.travel_type,
+        budget=req.budget,
+        mood=req.mood,
+        include_pois=req.include_pois
+    )
+    return {
+        "destination": req.destination,
+        "plan": plan
+    }
+
+@app.post("/api/itinerary/save", tags=["itinerary"])
 async def save_itinerary(
-    db: AsyncDb,
-    request: schemas.ItinerarySaveRequest,
+    req: schemas.ItinerarySaveRequest,
+    db: AsyncDB,
     user = Depends(get_current_user)
 ):
     saved = await CRUD.save_itinerary(
-        db, user_id=user.id,
-        destination=request.destination,
-        days=request.days,
-        plan=request.plan
+        db=db,
+        user_id=user.id,
+        destination=req.destination,
+        days=req.days,
+        plan=req.plan
     )
     return {"message": "Itinerary saved", "id": saved.id}
-@app.get("/api/itinerary/my", response_model=list[schemas.ItineraryDB])
-async def get_my_itineraries(db: AsyncDb,user = Depends(get_current_user)):
-    items = await CRUD.get_user_itineraries(db, user.id)
-    return items
-from fastapi.middleware.cors import CORSMiddleware
 
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:8080",
-    "https://your-site.netlify.app",   # add your Netlify domain
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+@app.get(
+    "/api/itinerary/my",
+    response_model=List[schemas.ItineraryDB],
+    tags=["itinerary"]
 )
+async def my_itineraries(
+    db: AsyncDB,
+    user = Depends(get_current_user)
+):
+    return await CRUD.get_user_itineraries(db, user.id)
