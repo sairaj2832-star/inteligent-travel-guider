@@ -1,3 +1,8 @@
+document.addEventListener("DOMContentLoaded", () => {
+  startApp();
+});
+
+function startApp() {
 const { API_BASE, GOOGLE_MAPS_API_KEY } = window.APP_CONFIG;
 
 let token = localStorage.getItem("token");
@@ -86,3 +91,4 @@ if(GOOGLE_MAPS_API_KEY){
   s.async=true;document.head.appendChild(s);
 }
 window.initMap=()=>map=new google.maps.Map(document.getElementById("map"),{center:{lat:20.5,lng:78.9},zoom:5});
+}
