@@ -1,115 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Dishanveshi</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <title>Dishanveshi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-<style>
-*{box-sizing:border-box;font-family:Inter}
-body{
-  margin:0;
-  background:radial-gradient(circle at top,#0f2027,#020b13);
-  color:#e6f7f7;
-}
-.hidden{display:none}
+  <style>
+    * { box-sizing: border-box; font-family: Inter }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #0f2027, #020b13);
+      color: #e6f7f7;
+    }
+    .hidden { display: none }
 
-/* AUTH */
-#auth{
-  height:100vh;display:flex;align-items:center;justify-content:center;
-}
-.auth-card{
-  width:360px;padding:30px;
-  background:rgba(15,32,39,.9);
-  backdrop-filter:blur(14px);
-  border-radius:16px;
-  animation:fadeIn .8s ease;
-}
-.auth-card h2{text-align:center;color:#2fdcdc}
-.auth-card input{
-  width:100%;padding:12px;margin:10px 0;
-  border-radius:8px;border:none;
-  background:#06161c;color:white;
-}
-.auth-card button{
-  width:100%;padding:12px;
-  border-radius:10px;border:none;
-  background:linear-gradient(135deg,#2fdcdc,#00b4d8);
-  font-weight:700;cursor:pointer;
-}
-.switch{text-align:center;margin-top:12px;cursor:pointer;color:#8becec}
+    /* Loader */
+    #loader {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    #loader::after {
+      content: "";
+      width: 50px;
+      height: 50px;
+      border: 4px solid #2fdcdc;
+      border-top: 4px solid transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg) } }
 
-/* APP */
-#app{height:100vh;display:grid;grid-template-columns:260px 1fr}
-#sidebar{padding:20px;background:rgba(5,20,28,.95)}
-#main{padding:20px;overflow-y:auto}
+    /* Layout */
+    #app {
+      min-height: 100vh;
+      padding: 20px;
+    }
 
-/* UI */
-.card{
-  background:rgba(255,255,255,.08);
-  backdrop-filter:blur(12px);
-  border-radius:14px;padding:14px;margin-bottom:12px;
-}
-button{cursor:pointer}
+    .card {
+      background: rgba(255,255,255,.08);
+      backdrop-filter: blur(12px);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
 
-/* LOADER */
-#loader{
-  position:fixed;inset:0;
-  background:rgba(0,0,0,.6);
-  display:flex;align-items:center;justify-content:center;
-  z-index:999;
-}
-#loader::after{
-  content:"";width:50px;height:50px;
-  border:4px solid #2fdcdc;border-top:4px solid transparent;
-  border-radius:50%;animation:spin 1s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1}}
-</style>
+    input, button {
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      margin: 6px 0;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(135deg, #2fdcdc, #00b4d8);
+      font-weight: 600;
+    }
+  </style>
 </head>
 
 <body>
 
 <div id="loader" class="hidden"></div>
 
-<!-- AUTH -->
-<div id="auth">
-  <div class="auth-card">
-    <h2 id="authTitle">Login</h2>
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-    <button id="authBtn" type="button">Login</button>
-    <div class="switch" id="switchAuth">No account? Sign up</div>
-  </div>
-</div>
+<div id="app">
 
-<!-- APP -->
-<div id="app" class="hidden">
-  <div id="sidebar">
-    <h2 style="color:#2fdcdc">Dishanveshi</h2>
-    <button onclick="logout()">Logout</button>
+  <h2>Dishanveshi – Travel Planner</h2>
+
+  <!-- Login (Optional / Demo) -->
+  <div class="card">
+    <h3>Login (Demo)</h3>
+    <input id="email" placeholder="Email" />
+    <input id="password" type="password" placeholder="Password" />
+    <button id="authBtn">Login</button>
+    <p style="font-size:13px">Demo login required only for itinerary / AI</p>
   </div>
-  <div id="main">
+
+  <!-- Map -->
+  <div class="card">
+    <h3>Map</h3>
     <div id="map" style="height:300px;border-radius:12px"></div>
-    <input id="destInput" placeholder="Destination">
-    <button id="newItinBtn">Generate Itinerary</button>
-    <input id="chatText" placeholder="Ask AI">
-    <button id="sendBtn">Send</button>
-    <div id="messages"></div>
-    <div id="savedList"></div>
   </div>
+
+  <!-- Itinerary -->
+  <div class="card">
+    <h3>Generate Itinerary</h3>
+    <input id="destInput" placeholder="Destination (e.g. Pune)" />
+    <button id="newItinBtn">Generate Itinerary</button>
+    <div id="messages"></div>
+  </div>
+
+  <!-- AI -->
+  <div class="card">
+    <h3>Ask AI</h3>
+    <input id="chatText" placeholder="Ask AI..." />
+    <button id="sendBtn">Send</button>
+  </div>
+
 </div>
 
 <script>
-window.APP_CONFIG = {
-  API_BASE: "https://dishanveshi.onrender.com",
-  GOOGLE_MAPS_API_KEY: "AIzaSyAK9_R8cwT6B5ShQP1H9Z91xusDX9Zjtvk"
-};
+  window.APP_CONFIG = {
+    API_BASE: "https://dishanveshi.onrender.com",
+    GOOGLE_MAPS_API_KEY: "YOUR_GOOGLE_MAPS_KEY"
+  };
 </script>
 
 <script src="app.js"></script>
+
 </body>
 </html>
