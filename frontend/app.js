@@ -1,8 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
+
   const API_BASE = window.APP_CONFIG.API_BASE;
   const MAPS_KEY = window.APP_CONFIG.GOOGLE_MAPS_API_KEY;
 
   const loader = document.getElementById("loader");
+  const mapStatus = document.getElementById("mapStatus");
+
   const authBtn = document.getElementById("authBtn");
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
@@ -16,10 +19,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let token = localStorage.getItem("token");
 
-  function showLoader() { loader.classList.remove("hidden"); }
-  function hideLoader() { loader.classList.add("hidden"); }
+  function showLoader() {
+    if (loader) loader.classList.remove("hidden");
+  }
 
-  /* ---------------- LOGIN (DEMO SAFE) ---------------- */
+  function hideLoader() {
+    if (loader) loader.classList.add("hidden");
+  }
+
+  /* 🔥 VERY IMPORTANT */
+  hideLoader(); // never block UI on load
+
+  /* ---------------- LOGIN ---------------- */
   authBtn.onclick = async () => {
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
@@ -27,7 +38,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!email || !password) {
       alert("Enter email and password");
       return;
-      hideLoader();
     }
 
     showLoader();
@@ -38,14 +48,14 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ email, password })
       });
 
-      if (!res.ok) throw new Error("Login failed");
-
+      if (!res.ok) throw new Error();
       const data = await res.json();
+
       token = data.access_token;
       localStorage.setItem("token", token);
       alert("Login successful");
     } catch {
-      alert("Login failed (demo backend issue)");
+      alert("Login failed");
     } finally {
       hideLoader();
     }
@@ -68,21 +78,17 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         body: JSON.stringify({
           destination: destInput.value || "Pune",
-          days: 3,
-          travel_type: "cultural",
-          budget: "medium",
-          mood: "relaxed",
-          include_pois: false
+          days: 3
         })
       });
 
       const data = await res.json();
       messages.innerHTML = "";
 
-      data.plan.forEach(day => {
+      (data.plan || []).forEach(d => {
         const div = document.createElement("div");
         div.className = "card";
-        div.innerText = `Day ${day.day}: ${day.summary}`;
+        div.textContent = `Day ${d.day}: ${d.summary}`;
         messages.appendChild(div);
       });
     } catch {
@@ -107,10 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token
         },
-        body: JSON.stringify({
-          mood: "neutral",
-          places_list: chatText.value
-        })
+        body: JSON.stringify({ places_list: chatText.value })
       });
 
       const data = await res.json();
@@ -122,19 +125,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  /* ---------------- GOOGLE MAP ---------------- */
+  /* ---------------- GOOGLE MAPS ---------------- */
   if (MAPS_KEY) {
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&callback=initMap`;
-    s.async = true;
-    document.head.appendChild(s);
-  }
-
-  window.initMap = function () {
-    new google.maps.Map(document.getElementById("map"), {
-      center: { lat: 20.5937, lng: 78.9629 },
-      zoom: 5
-    });
-  };
-hideLoader();
-});
+    const script = document.createElement("script");
