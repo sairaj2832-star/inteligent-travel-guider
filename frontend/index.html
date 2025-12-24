@@ -2,105 +2,108 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Dishanveshi</title>
+  <title>Dishanveshi – Travel Planner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-
   <style>
-    * { box-sizing: border-box; font-family: Inter }
     body {
       margin: 0;
-      background: radial-gradient(circle at top, #0f2027, #020b13);
+      font-family: Arial, sans-serif;
+      background: #0b1c24;
       color: #e6f7f7;
     }
-    .hidden { display: none }
 
-    /* Loader */
+    .hidden { display: none; }
+
     #loader {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,.6);
+      background: rgba(0,0,0,0.6);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 999;
     }
+
     #loader::after {
       content: "";
-      width: 50px;
-      height: 50px;
+      width: 48px;
+      height: 48px;
       border: 4px solid #2fdcdc;
       border-top: 4px solid transparent;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg) } }
 
-    /* Layout */
-    #app {
-      min-height: 100vh;
-      padding: 20px;
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     .card {
-      background: rgba(255,255,255,.08);
-      backdrop-filter: blur(12px);
-      border-radius: 14px;
-      padding: 14px;
-      margin-bottom: 12px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
     }
 
     input, button {
       padding: 10px;
-      border-radius: 8px;
+      border-radius: 6px;
       border: none;
-      margin: 6px 0;
+      margin-top: 6px;
+      width: 100%;
     }
 
     button {
+      background: #2fdcdc;
+      font-weight: bold;
       cursor: pointer;
-      background: linear-gradient(135deg, #2fdcdc, #00b4d8);
-      font-weight: 600;
+    }
+
+    #map {
+      height: 300px;
+      border-radius: 12px;
     }
   </style>
 </head>
 
 <body>
 
+<!-- Loader MUST start hidden -->
 <div id="loader" class="hidden"></div>
 
 <div id="app">
 
   <h2>Dishanveshi – Travel Planner</h2>
 
-  <!-- Login (Optional / Demo) -->
+  <!-- LOGIN (DEMO) -->
   <div class="card">
     <h3>Login (Demo)</h3>
-    <input id="email" placeholder="Email" />
-    <input id="password" type="password" placeholder="Password" />
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
     <button id="authBtn">Login</button>
-    <p style="font-size:13px">Demo login required only for itinerary / AI</p>
+    <small>Login required only for itinerary / AI</small>
   </div>
 
-  <!-- Map -->
+  <!-- MAP -->
   <div class="card">
     <h3>Map</h3>
-    <div id="map" style="height:300px;border-radius:12px"></div>
+    <div id="map"></div>
+    <small id="mapStatus"></small>
   </div>
 
-  <!-- Itinerary -->
+  <!-- ITINERARY -->
   <div class="card">
     <h3>Generate Itinerary</h3>
-    <input id="destInput" placeholder="Destination (e.g. Pune)" />
-    <button id="newItinBtn">Generate Itinerary</button>
+    <input id="destInput" placeholder="Destination (e.g. Pune)">
+    <button id="newItinBtn">Generate</button>
     <div id="messages"></div>
   </div>
 
   <!-- AI -->
   <div class="card">
     <h3>Ask AI</h3>
-    <input id="chatText" placeholder="Ask AI..." />
+    <input id="chatText" placeholder="Ask AI">
     <button id="sendBtn">Send</button>
   </div>
 
@@ -109,11 +112,10 @@
 <script>
   window.APP_CONFIG = {
     API_BASE: "https://dishanveshi.onrender.com",
-    GOOGLE_MAPS_API_KEY: "YOUR_GOOGLE_MAPS_KEY"
+    GOOGLE_MAPS_API_KEY: "YOUR_GOOGLE_MAPS_KEY_HERE"
   };
 </script>
 
 <script src="app.js"></script>
-
 </body>
 </html>
