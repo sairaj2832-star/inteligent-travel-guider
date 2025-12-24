@@ -135,10 +135,15 @@ class LoginRequest(BaseModel):
 @app.post("/api/auth/login", response_model=schemas.Token)
 async def login(req: LoginRequest, db: AsyncDB):
     user = await CRUD.get_user_by_email(db, email=req.email)
-    if not user or not security.verify_password(
-        req.password, user.hashed_password
-    ):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not user or not await security.verify_password_async(
+    form.password,
+    user.hashed_password
+):
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Incorrect email or password",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
 
     token = security.create_access_token({"sub": user.email})
     return {
