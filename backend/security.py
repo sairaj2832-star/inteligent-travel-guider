@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
+import asyncio
 
 # --- .env Configuration ---
 # This line loads the variables from your .env file (e.g., SECRET_KEY)
@@ -19,12 +20,13 @@ if not SECRET_KEY:
 # --- Password Hashing (from before) ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verifies a plain password against a hashed password.
-    Returns True if they match, False otherwise.
-    """
-    return pwd_context.verify(plain_password, hashed_password)
+async def verify_password_async(plain_password, hashed_password):
+    """ Verifies a plain password against a hashed password. Returns True if they match, False otherwise. """
+    return await asyncio.to_thread(
+        pwd_context.verify,
+        plain_password,
+        hashed_password
+    )
 
 def get_password_hash(password: str) -> str:
     """
