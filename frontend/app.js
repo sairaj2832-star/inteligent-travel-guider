@@ -136,6 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (err) {
         alert("Authentication failed.");
         console.error("Auth error:", err);
+         hideLoader();
       } finally {
         hideLoader();
       }
